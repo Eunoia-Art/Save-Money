@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101827">
+<title>₹10 Savings Challenge</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#121d2e;--panel2:#1b2940;--text:#f4f7fb;--muted:#9aa9bd;--green:#22c55e;--line:#293950}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(160deg,#12243a 0%,var(--bg) 45%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+main{width:min(760px,100%);margin:auto;padding:24px 16px 40px}
+header{text-align:center;margin:10px 0 22px}
+.logo{font-size:34px}
+h1{font-size:clamp(24px,6vw,34px);margin:6px 0}
+.subtitle{color:var(--muted);margin:0}
+.summary{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px;margin-bottom:16px;box-shadow:0 12px 35px #0003}
+.total{font-size:clamp(32px,9vw,48px);font-weight:800;letter-spacing:-1px;text-align:center;margin:2px 0}
+.goal{text-align:center;color:var(--muted);font-size:14px}
+.track{height:12px;background:#29364a;border-radius:99px;overflow:hidden;margin:18px 0 10px}
+.fill{height:100%;width:0;background:linear-gradient(90deg,#16a34a,#86efac);border-radius:99px;transition:width .2s}
+.stats{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:13px}
+.actions{display:flex;gap:10px;margin:16px 0}
+button{font:inherit;cursor:pointer}
+.action{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:11px 14px;flex:1}
+.action:active,.cell:active{transform:scale(.97)}
+.grid-wrap{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:14px}
+.grid-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 2px 12px}
+.grid-head strong{font-size:16px}
+.hint{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.cell{min-height:58px;border:1px solid #34445b;border-radius:12px;background:#1a293d;color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px}
+.cell .amount{font-weight:750;font-size:14px}
+.cell .number{font-size:10px;color:var(--muted)}
+.cell.saved{background:#14532d;border-color:#22c55e;color:#dcfce7}
+.cell.saved .number{color:#bbf7d0}
+footer{text-align:center;color:var(--muted);font-size:12px;margin:16px 0 0}
+@media(min-width:520px){.grid{grid-template-columns:repeat(8,minmax(0,1fr))}.cell{min-height:64px}}
+@media(max-width:360px){.grid{gap:6px}.cell{min-height:52px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="logo">💰</div>
+  <h1>₹10 Savings Challenge</h1>
+  <p class="subtitle">Small savings. Big goal.</p>
+</header>
+<section class="summary" aria-live="polite">
+  <div class="total" id="total">₹0</div>
+  <div class="goal">saved out of ₹10,000</div>
+  <div class="track"><div class="fill" id="progress"></div></div>
+  <div class="stats"><span id="count">0 of 1000 boxes saved</span><span id="percent">0%</span></div>
+</section>
+<div class="actions">
+  <button class="action" id="undo" type="button">↶ Undo last</button>
+  <button class="action" id="reset" type="button">Reset challenge</button>
+</div>
+<section class="grid-wrap">
+  <div class="grid-head"><strong>Your 1000 boxes</strong><span class="hint">Tap a box after saving ₹10</span></div>
+  <div class="grid" id="grid" aria-label="1000 savings boxes"></div>
+</section>
+<footer>Your progress is saved automatically on this device. No internet or account needed.</footer>
+</main>
+<script>
+(() => {
+  const KEY = "tenRupeeSavings_v1";
+  let saved = new Set();
+  let history = [];
+  try {
+    const data = JSON.parse(localStorage.getItem(KEY) || "{}");
+    if (Array.isArray(data.saved)) saved = new Set(data.saved.filter(n => Number.isInteger(n) && n >= 1 && n <= 1000));
+    if (Array.isArray(data.history)) history = data.history.filter(n => Number.isInteger(n) && n >= 1 && n <= 1000);
+  } catch (_) {}
+  const grid = document.getElementById("grid");
+  const totalEl = document.getElementById("total");
+  const countEl = document.getElementById("count");
+  const percentEl = document.getElementById("percent");
+  const progressEl = document.getElementById("progress");
+
+  function persist() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({saved:[...saved], history}));
+    } catch (_) {
+      alert("Could not save data in this browser. Please check available device storage.");
+    }
+  }
+  function renderSummary() {
+    const count = saved.size;
+    const total = count * 10;
+    const percent = count / 10;
+    totalEl.textContent = "₹" + total.toLocaleString("en-IN");
+    countEl.textContent = `${count} of 1000 boxes saved`;
+    percentEl.textContent = `${percent}%`;
+    progressEl.style.width = `${percent}%`;
+  }
+  function renderGrid() {
+    const fragment = document.createDocumentFragment();
+    for (let i = 1; i <= 1000; i++) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cell" + (saved.has(i) ? " saved" : "");
+      btn.setAttribute("aria-pressed", saved.has(i) ? "true" : "false");
+      btn.setAttribute("aria-label", `Box ${i}, 10 rupees, ${saved.has(i) ? "saved" : "not saved"}`);
+      btn.innerHTML = `<span class="amount">₹10</span><span class="number">#${i}</span>`;
+      btn.addEventListener("click", () => {
+        if (saved.has(i)) {
+          saved.delete(i);
+          history.push(-i);
+        } else {
+          saved.add(i);
+          history.push(i);
+        }
+        persist();
+        renderSummary();
+        btn.classList.toggle("saved", saved.has(i));
+        btn.setAttribute("aria-pressed", saved.has(i) ? "true" : "false");
+        btn.setAttribute("aria-label", `Box ${i}, 10 rupees, ${saved.has(i) ? "saved" : "not saved"}`);
+      });
+      fragment.appendChild(btn);
+    }
+    grid.appendChild(fragment);
+  }
+  document.getElementById("undo").addEventListener("click", () => {
+    const last = history.pop();
+    if (last === undefined) return;
+    const n = Math.abs(last);
+    if (last > 0) saved.delete(n); else saved.add(n);
+    persist();
+    renderSummary();
+    const btn = grid.children[n - 1];
+    btn.classList.toggle("saved", saved.has(n));
+    btn.setAttribute("aria-pressed", saved.has(n) ? "true" : "false");
+    btn.setAttribute("aria-label", `Box ${n}, 10 rupees, ${saved.has(n) ? "saved" : "not saved"}`);
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    if (!confirm("Reset all 1000 boxes and set your savings to ₹0? This cannot be undone.")) return;
+    saved.clear();
+    history = [];
+    persist();
+    renderSummary();
+    [...grid.children].forEach(btn => {
+      btn.classList.remove("saved");
+      btn.setAttribute("aria-pressed", "false");
+    });
+  });
+  renderGrid();
+  renderSummary();
+})();
+</script>
+</body>
+</html>
